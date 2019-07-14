@@ -48,7 +48,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',    # 会自动填充头部的https://或尾部的/
     'django.middleware.csrf.CsrfViewMiddleware',    # 跨站请求伪造
     'django.contrib.auth.middleware.AuthenticationMiddleware',  # 权限校验认证
-    'django.contrib.messages.middleware.MessageMiddleware',     # app message 提供的中间件
+    'django.contrib.messages.middleware.MessageMiddleware',     # 处理临时消息的中间件
     'django.middleware.clickjacking.XFrameOptionsMiddleware',   # 安全防护
 ]
 
@@ -85,17 +85,22 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',   # 数据库引擎
         'OPTIONS': {
+            # 为了安全起见,将数据库的配置信息单独拿到一个环境变量文件中
             'read_default_file': 'utils/dbs/my.cnf',    # 读取数据库的配置信息
         },
     }
 }
 
-# 配置redis数据库
+""" 配置redis数据库
+为了给用户的session信息,短信和图片验证码提供一个缓存的空间,我们需要提供一个缓存类数据库用来缓存我们的验证数据
+这么做同样也是给mysql数据库减轻负重
+这里我们使用redis数据库来完成缓存验证信息的目标
+"""
 CACHES = {
     "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/0",
-        "OPTIONS": {
+        "BACKEND": "django_redis.cache.RedisCache",     # redis缓存引擎
+        "LOCATION": "redis://127.0.0.1:6379/0",     # 指定redis所在的地址, 默认端口6379, 0代表数据库的索引
+        "OPTIONS": {    # 指定需要使用redis的client类
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
     },
@@ -103,41 +108,20 @@ CACHES = {
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
-    {
+    {   # 检查密码和用户的属性之间的相似性
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
-    {
+    {   # 检查密码是否满足最小长度
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
-    {
+    {   # 检查密码是否出现在常用密码列表中。默认情况下，它会与包含20,000个常用密码的列表进行比较
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
-    {
+    {   # 检查密码是否完全是数字
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
-
-# Internationalization
-# https://docs.djangoproject.com/en/2.1/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
-USE_L10N = True
-
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/2.1/howto/static-files/
-
-STATIC_URL = '/static/'
 
 # 配置日志器
 LOGGING = {             # 表示放在logging的参数里面已字典的形式存在
@@ -146,7 +130,7 @@ LOGGING = {             # 表示放在logging的参数里面已字典的形式�
     'formatters': {             # 表示日志输出的格式
         'verbose': {            # 表示复杂点的格式
             'format': '%(levelname)s %(asctime)s %(module)s %(lineno)d %(message)s'
-        },
+        },  # levelname日志等级,asctime记录时间,module记录的模块,lineno行号,message具体日志信息
         'simple': {             # 表示简单格式
             #  表示他的等级在模块的第几行出现的信息
             'format': '%(levelname)s %(module)s %(lineno)d %(message)s'
@@ -154,30 +138,54 @@ LOGGING = {             # 表示放在logging的参数里面已字典的形式�
     },
     'filters': {            # 过滤器, 表示是否屏蔽在其他地方输出的日志信息. django默认不做任何屏蔽
         'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
+            '()': 'django.utils.log.RequireDebugTrue',  # 过滤器,保留debug及以上的日志
         },
     },
     'handlers': {       # 代表处理器
-        'console': {        # 终端
+        'console': {        # 终端,对终端中日志显示的设置
             'level': 'DEBUG',       # debug级别以上的都可以写
-            'filters': ['require_debug_true'],
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple'
+            'filters': ['require_debug_true'],  # 过滤器,保留debug及以上的日志
+            'class': 'logging.StreamHandler',   # 流处理器
+            'formatter': 'simple'   # 使用简单格式,上面formatters定义的
         },
-        'file': {           # 文件
+        'file': {           # 文件,对文件中日志显示的设置
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
             # BASE_DIR 指的是里面内嵌的test_pr 目录
             'filename': os.path.join(BASE_DIR, "logs/news.log"),  # 日志文件的位置
             'maxBytes': 300 * 1024 * 1024,          # 每个文件的最大值,满了自动产生新文件
             'backupCount': 10,                      # 保留多少个文件
-            'formatter': 'verbose'
+            'formatter': 'verbose'      # 当保存的文件达到最大时,之后的文件会自动对之前的进行覆盖
         },
     },
+    # 本次项目中所使用的日志器在这配置
     'loggers': {        # 创建logger日志器的对象,是通过配置方式创建,不是真定义
-        'django': {  # 定义了一个名为django的日志器
+        'django': {     # 定义了一个名为django的日志器
             'handlers': ['console', 'file'],        # 可以往终端和文件里面写
             'propagate': True,      # 表示django日志器执行完后还可以再传递,别的日志器也可以再使用
+            'level': 'INFO',    # info级的日志会被记录
         },
     }
 }
+
+# Internationalization
+# https://docs.djangoproject.com/en/2.1/topics/i18n/
+
+LANGUAGE_CODE = 'zh-hans'     # 优先显示的语言
+
+TIME_ZONE = 'UTC'       # 显示的时区
+
+USE_I18N = True     # 是否应该启用Django的翻译系统, 也可以为了提高使用性能,将其关闭
+
+USE_L10N = True     # 是否启用本地化
+
+USE_TZ = True       # 是否支持时区
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/2.1/howto/static-files/
+
+STATIC_URL = '/static/'     # 设置静态文件路径
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),   # 用于存放静态文件
+]
