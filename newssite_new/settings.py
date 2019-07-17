@@ -37,6 +37,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',      # 会话session数据可以在数据库中的django_session表中查看。
     'django.contrib.messages',      # 消息框架
     'django.contrib.staticfiles',   # 通过该应用找设定好的静态文件
+    'apps.news',
+    'apps.users',
+    'apps.doc',
+    'apps.course',
 ]
 """
 django在处理请求的时候,首先会通过django中间件进行一系列的处理，然后再通过默认的URL方式进行的. 中间件中设定的是从用户请求到用户请求结束期间所需要做的操作.

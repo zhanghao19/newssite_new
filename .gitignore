@@ -121,3 +121,6 @@ my.cnf
 # Logs file
 news.log
 
+# push code
+push_git.py
+
